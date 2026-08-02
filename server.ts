@@ -38,12 +38,8 @@ function getTarget(pathname: string): URL | null {
   return null;
 }
 
-// 1. Removed allowHTTP1 to resolve the TypeScript ServerOptions error.
-// Cloud Run natively routes raw HTTP/2 (h2c) directly to the container.
 const server = http2.createServer();
 
-// 2. Changed from "stream" to "request" 
-// http2Proxy.web requires standard req/res objects to preserve gRPC trailers.
 server.on("request", (req, res) => {
   const pathname = req.url || "/";
   
@@ -68,8 +64,8 @@ server.on("request", (req, res) => {
     {
       hostname: target.hostname,
       port: Number(target.port) || (target.protocol === "https:" ? 443 : 80),
-      // http2-proxy expects the protocol string without the colon
-      protocol: target.protocol.replace(":", "") as "http" | "https",
+      // Bypass the strict "@types" definition to allow h2c ("http") routing
+      protocol: target.protocol.replace(":", "") as any,
     },
     (err) => {
       if (err && !res.headersSent) {
