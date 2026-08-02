@@ -38,46 +38,47 @@ function getTarget(pathname: string): URL | null {
   return null;
 }
 
-const server = http2.createServer({ allowHTTP1: true });
+// 1. Removed allowHTTP1 to resolve the TypeScript ServerOptions error.
+// Cloud Run natively routes raw HTTP/2 (h2c) directly to the container.
+const server = http2.createServer();
 
-// gRPC / HTTP2 Stream Handling
-server.on("stream", (stream, headers) => {
-  const pathname = (headers[":path"] as string) || "/";
-  const target = getTarget(pathname);
-
-  if (!target) {
-    stream.respond({ ":status": 404, "content-type": "application/grpc" });
-    stream.end();
-    return;
-  }
-
-  http2Proxy.web(
-    stream,
-    headers,
-    {
-      hostname: target.hostname,
-      port: Number(target.port) || (target.protocol === "https:" ? 443 : 80),
-      protocol: target.protocol.replace(":", "") as "http" | "https",
-    },
-    (err) => {
-      if (err && !stream.headersSent) {
-        console.error("gRPC Proxy Error:", err);
-        stream.respond({ ":status": 502, "content-type": "application/grpc" });
-        stream.end();
-      }
-    }
-  );
-});
-
-// Cloud Run Health Check Handler
+// 2. Changed from "stream" to "request" 
+// http2Proxy.web requires standard req/res objects to preserve gRPC trailers.
 server.on("request", (req, res) => {
-  if (req.httpVersionMajor < 2 && (req.url === "/" || req.url === "/health")) {
+  const pathname = req.url || "/";
+  
+  // Cloud Run HTTP/2 Health Check
+  if (pathname === "/" || pathname === "/health") {
     res.writeHead(200, { "Content-Type": "text/plain" });
     res.end("OK");
     return;
   }
-  res.writeHead(404, { "Content-Type": "text/plain" });
-  res.end();
+
+  const target = getTarget(pathname);
+
+  if (!target) {
+    res.writeHead(404, { "Content-Type": "application/grpc" });
+    res.end();
+    return;
+  }
+
+  http2Proxy.web(
+    req,
+    res,
+    {
+      hostname: target.hostname,
+      port: Number(target.port) || (target.protocol === "https:" ? 443 : 80),
+      // http2-proxy expects the protocol string without the colon
+      protocol: target.protocol.replace(":", "") as "http" | "https",
+    },
+    (err) => {
+      if (err && !res.headersSent) {
+        console.error("gRPC Proxy Error:", err);
+        res.writeHead(502, { "Content-Type": "application/grpc" });
+        res.end();
+      }
+    }
+  );
 });
 
 // Graceful Shutdown Handler
@@ -91,4 +92,3 @@ process.on("SIGTERM", () => {
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`Dedicated gRPC proxy running on port ${PORT}`);
 });
-              
