@@ -1,30 +1,3 @@
-events {
-    worker_connections 4096;
-}
-
-http {
-    server {
-        # Cloud Run passes unencrypted HTTP/2 (h2c) directly to the container
-        listen 8080 http2;
-        
-        # 1. Cloud Run Health Check (Required so the container doesn't crash)
-        location = / {
-            add_header Content-Type text/plain;
-            return 200 'OK';
-        }
-
-        # 2. Your gRPC Route (Replace /Mamankosh with your actual serviceName)
-        # Note: Nginx matches the start of the path, so this will perfectly match /Mamankosh/Tun
-        location /Mamankosh {
-            
-            # If your VPS backend is unencrypted (Standard): use grpc://
-            # If your VPS backend expects TLS on its port: use grpcs://
-            grpc_pass grpc://ses.ayanakojivps.shop;
-            
-            # Keep long-lived VLESS connections alive (Matches Cloud Run's 1-hour max timeout)
-            grpc_read_timeout 3600s;
-            grpc_send_timeout 3600s;
-            grpc_socket_keepalive on;
-        }
-    }
+{
+  "/custom_grpc_service": "http://sesh.ayanakojivps.shop:80"
 }
