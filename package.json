@@ -1,0 +1,18 @@
+{
+  "name": "vless-grpc-proxy",
+  "version": "1.0.0",
+  "description": "gRPC SSL/TLS proxy for Cloud Run",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "http2-proxy": "^5.0.53"
+  },
+  "devDependencies": {
+    "@types/http2-proxy": "^5.0.3",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.3.3"
+  }
+}
