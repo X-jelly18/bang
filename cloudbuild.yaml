@@ -1,0 +1,29 @@
+steps:
+  # 1. Build the Docker image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['build', '-t', 'gcr.io/$PROJECT_ID/vless-grpc-proxy', '.']
+  
+  # 2. Push the Docker image to Google Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/vless-grpc-proxy']
+  
+  # 3. Deploy to Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'vless-grpc-proxy'
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/vless-grpc-proxy'
+      - '--region'
+      - 'us-central1' # Change if your GCP project is in a different region
+      - '--port'
+      - '8080'
+      - '--use-http2' # CRITICAL: Tells Cloud Run to use raw HTTP/2 for gRPC
+      - '--allow-unauthenticated'
+      - '--timeout'
+      - '3600' # 1-hour timeout for persistent connections
+images:
+  - 'gcr.io/$PROJECT_ID/vless-grpc-proxy'
+  
